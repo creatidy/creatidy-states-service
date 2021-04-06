@@ -11,25 +11,30 @@ class TransactionType(Enum):
     DIVIDEND = 6
     TRANSFER = 7
     TAX = 8
+    COMMISSION = 9
 
 
 class Transaction(object):
 
-    def __init__(self, **kwargs):
-        for field in self.fields():
-            if field in kwargs:
-                setattr(self, field, kwargs[field])
-            else:
-                setattr(self, field, None)
-
-    @staticmethod
-    def fields():
-        return ['data_source', 'client_id', 'account', 'transaction_id', 'transaction_type', 'asset',
-                'timestamp', 'order_id', 'order_position', 'related_account', 'transaction_sum']
+    def __init__(self, data_source=None, client_id=None, account=None, transaction_id=None, related_asset=None,
+                 transaction_type=None, asset=None, timestamp=None, order_id=None, order_position=None,
+                 related_account=None, transaction_sum=None):
+        self.data_source = data_source
+        self.client_id = client_id
+        self.account = account
+        self.transaction_id = transaction_id
+        self.related_asset = related_asset
+        self.transaction_type = transaction_type
+        self.asset = asset
+        self.timestamp = timestamp
+        self.order_id = order_id
+        self.order_position = order_position
+        self.related_account = related_account
+        self.transaction_sum = transaction_sum
 
 
 class TransactionsList(list):
 
     def __init__(self):
         super().__init__()
-        self.list = []
+

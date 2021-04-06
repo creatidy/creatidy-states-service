@@ -12,4 +12,4 @@ class TestStatesManager(TestCase):
     def test_process_transactions(self):
         sm = StatesManager()
         res = sm.process_transactions()
-        self.assertTrue(len(res) > 0)
+        self.assertTrue(res)
