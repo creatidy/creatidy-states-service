@@ -27,6 +27,7 @@ class StatesDatabase:
                         `states`.`data_source`,
                         `states`.`account`,
                         `states`.`transaction_id`,
+                        `states`.`transaction_type`,
                         `states`.`asset`,
                         `states`.`timestamp`,
                         `states`.`amount_of_asset`,
@@ -42,6 +43,8 @@ class StatesDatabase:
                         `states`.`dividend`,
                         `states`.`withholding_tax`,
                         `states`.`dividend_currency`,
+                        `states`.`currency_pair`,
+                        `states`.`currency_rate`,
                         `states`.`last_update`
                     FROM `creatidy`.`states`
                     WHERE `states`.`client_id` = %s AND 
@@ -60,22 +63,25 @@ class StatesDatabase:
                     'data_source': item[2],
                     'account': item[3],
                     'transaction_id': item[4],
-                    'asset': item[5],
-                    'timestamp': item[6],
-                    'amount_of_asset': Decimal(item[7]) if item[7] is not None else None,
-                    'cost_of_asset': Decimal(item[8]) if item[8] is not None else None,
-                    'cost_currency': item[9],
-                    'amount_in_fifo': Decimal(item[10]) if item[10] is not None else None,
-                    'cost_in_fifo': Decimal(item[11]) if item[11] is not None else None,
-                    'fifo_currency': item[12],
-                    'income': Decimal(item[13]) if item[13] is not None else None,
-                    'cost': Decimal(item[14]) if item[14] is not None else None,
-                    'profit': Decimal(item[15]) if item[15] is not None else None,
-                    'profit_currency': item[16] if item[16] is not None else None,
-                    'dividend': Decimal(item[17]) if item[17] is not None else None,
-                    'withholding_tax': Decimal(item[18]) if item[18] is not None else None,
-                    'dividend_currency': item[19] if item[19] is not None else None,
-                    'last_update': item[20]
+                    'transaction_type': item[5],
+                    'asset': item[6],
+                    'timestamp': item[7],
+                    'amount_of_asset': Decimal(item[8]) if item[8] is not None else None,
+                    'cost_of_asset': Decimal(item[9]) if item[9] is not None else None,
+                    'cost_currency': item[10],
+                    'amount_in_fifo': Decimal(item[11]) if item[11] is not None else None,
+                    'cost_in_fifo': Decimal(item[12]) if item[12] is not None else None,
+                    'fifo_currency': item[13],
+                    'income': Decimal(item[14]) if item[14] is not None else None,
+                    'cost': Decimal(item[15]) if item[15] is not None else None,
+                    'profit': Decimal(item[16]) if item[16] is not None else None,
+                    'profit_currency': item[17] if item[17] is not None else None,
+                    'dividend': Decimal(item[18]) if item[18] is not None else None,
+                    'withholding_tax': Decimal(item[19]) if item[19] is not None else None,
+                    'dividend_currency': item[20] if item[20] is not None else None,
+                    'currency_pair': item[21] if item[21] is not None else None,
+                    'currency_rate': Decimal(item[22]) if item[22] is not None else None,
+                    'last_update': item[23]
                 }
         cursor.close()
         return State(**kwargs)
@@ -93,6 +99,7 @@ class StatesDatabase:
                         `states`.`data_source`,
                         `states`.`account`,
                         `states`.`transaction_id`,
+                        `states`.`transaction_type`,
                         `states`.`asset`,
                         `states`.`timestamp`,
                         `states`.`amount_of_asset`,
@@ -108,14 +115,17 @@ class StatesDatabase:
                         `states`.`dividend`,
                         `states`.`withholding_tax`,
                         `states`.`dividend_currency`,
+                        `states`.`currency_pair`,
+                        `states`.`currency_rate`,
                         `states`.`last_update`)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                    VALUES (%s, %s,  %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         cursor = self.cnx.cursor(buffered=True)
         cursor.execute(query, (state.state_id,
                                state.client_id,
                                state.data_source,
                                state.account,
                                state.transaction_id,
+                               state.transaction_type,
                                state.asset,
                                datetime.fromtimestamp(float(state.timestamp)),
                                float("{:.2f}".format(state.amount_of_asset)),
@@ -131,6 +141,8 @@ class StatesDatabase:
                                float("{:.2f}".format(state.dividend)),
                                float("{:.2f}".format(state.withholding_tax)),
                                state.dividend_currency,
+                               state.currency_pair,
+                               float("{:.4f}".format(state.currency_rate)) if state.currency_rate is not None else None,
                                datetime.fromtimestamp(float(state.last_update))))
         self.cnx.commit()
 
@@ -140,6 +152,7 @@ class StatesDatabase:
                         `states`.`data_source` = %s,
                         `states`.`account` = %s,
                         `states`.`transaction_id` = %s,
+                        `states`.`transaction_type` = %s,
                         `states`.`asset` = %s,
                         `states`.`timestamp` = %s,
                         `states`.`amount_of_asset` = %s,
@@ -155,6 +168,8 @@ class StatesDatabase:
                         `states`.`dividend` = %s,
                         `states`.`withholding_tax` = %s,
                         `states`.`dividend_currency` = %s,
+                        `states`.`currency_pair` = %s,
+                        `states`.`currency_rate` = %s,
                         `states`.`last_update` = %s
                    WHERE `states`.`state_id` = %s"""
         cursor = self.cnx.cursor(buffered=True)
@@ -162,6 +177,7 @@ class StatesDatabase:
                                state.data_source,
                                state.account,
                                state.transaction_id,
+                               state.transaction_type,
                                state.asset,
                                datetime.fromtimestamp(float(state.timestamp)),
                                float("{:.2f}".format(state.amount_of_asset)),
@@ -177,6 +193,8 @@ class StatesDatabase:
                                float("{:.2f}".format(state.dividend)),
                                float("{:.2f}".format(state.withholding_tax)),
                                state.dividend_currency,
+                               state.currency_pair,
+                               float("{:.4f}".format(state.currency_rate)),
                                datetime.fromtimestamp(float(state.last_update)),
                                state.state_id
                                ))
