@@ -58,8 +58,8 @@ class StatesManager:
                     'account': t.account,
                     'transaction_id': t.transaction_id,
                     'transaction_type': t.transaction_type.name,
-                    'timestamp': t.timestamp,
-                    'last_update': datetime.now().timestamp()
+                    'timestamp': datetime.fromtimestamp(float(t.timestamp)),
+                    'last_update': datetime.now()
                 }
                 s = State(**initial_kwargs)
                 last_state_id += 1
@@ -75,8 +75,7 @@ class StatesManager:
                         t.transaction_type == TransactionType.TRANSFER:
                     s.asset = t.asset
                     if last_asset_state.client_id is not None:
-                        s.copy_last_state_values(last_asset_state)
-                        s.amount_of_asset += t.transaction_sum
+                        s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
@@ -88,8 +87,7 @@ class StatesManager:
                 elif t.transaction_type == TransactionType.FEE:
                     s.asset = t.asset
                     if last_asset_state.client_id is not None:
-                        s.copy_last_state_values(last_asset_state)
-                        s.amount_of_asset += t.transaction_sum
+                        s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
@@ -98,28 +96,27 @@ class StatesManager:
                     table.add_row(s.__dict__.values())
                     print(table)
 
-                elif t.transaction_type == TransactionType.COMMISSION:
-                    s.asset = t.asset
-                    if last_asset_state.client_id is not None:
-                        s.copy_last_state_values(last_asset_state)
-                        s.amount_of_asset += t.transaction_sum
-                    else:
-                        s.amount_of_asset = t.transaction_sum
-                    self.states_db.insert_state(s)
-                    table.clear()
-                    table.add_row(s.__dict__.keys())
-                    table.add_row(s.__dict__.values())
-                    print(table)
+                # elif t.transaction_type == TransactionType.COMMISSION:
+                #     s.asset = t.asset
+                #     if last_asset_state.client_id is not None:
+                #         s.copy_last_state_values(last_asset_state)
+                #         s.amount_of_asset += t.transaction_sum
+                #     else:
+                #         s.amount_of_asset = t.transaction_sum
+                #     self.states_db.insert_state(s)
+                #     table.clear()
+                #     table.add_row(s.__dict__.keys())
+                #     table.add_row(s.__dict__.values())
+                #     print(table)
 
                 elif t.transaction_type == TransactionType.DIVIDEND:
                     if last_related_asset_state.amount_of_asset is not None:
-                        s.copy_last_state_values(last_related_asset_state)
+                        s.amount_of_asset = last_related_asset_state.amount_of_asset
                         s.asset = t.related_asset
                         s.dividend = Decimal(t.transaction_sum)
                         s.currency_pair = f'{t.asset}PLN'
                         s.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
-                        s.withholding_tax = 0.0
-                        s.dividend_currency = 'PLN'
+                        s.dividend_currency = t.asset
                         self.states_db.insert_state(s)
                         table.clear()
                         table.add_row(s.__dict__.keys())
@@ -129,7 +126,7 @@ class StatesManager:
                     # Adding to payed dividend to an account
                     if last_asset_state.amount_of_asset is not None:
                         s2 = State(**initial_kwargs)
-                        s2.copy_last_state_values(last_asset_state)
+                        s2.amount_of_asset = last_asset_state.amount_of_asset
                         s2.asset = t.asset
                         s2.amount_of_asset += t.transaction_sum
                         s2.state_id = last_state_id
@@ -137,16 +134,16 @@ class StatesManager:
                         s2.currency_rate = None
                         last_state_id += 1
                         self.states_db.insert_state(s2)
-                    table.add_row(s.__dict__.values())
+                        table.add_row(s2.__dict__.values())
                     print(table)
 
                 elif t.transaction_type == TransactionType.TAX:
                     if last_related_asset_state.dividend > 0:
-                        s.copy_last_state_values(last_related_asset_state)
+                        s.amount_of_asset = last_related_asset_state.amount_of_asset
                         s.asset = t.related_asset
                         s.state_id = last_related_asset_state.state_id
                         s.dividend = last_related_asset_state.dividend
-                        if last_related_asset_state.dividend_currency == 'PLN':
+                        if last_related_asset_state.dividend_currency == t.asset:
                             s.dividend_currency = last_related_asset_state.dividend_currency
                         else:
                             raise "Unexpected currency type!"
@@ -162,7 +159,7 @@ class StatesManager:
                     # Paying a tax for the dividend from an account
                     if last_asset_state.amount_of_asset is not None:
                         s2 = State(**initial_kwargs)
-                        s2.copy_last_state_values(last_asset_state)
+                        s2.amount_of_asset = last_asset_state.amount_of_asset
                         s2.asset = t.asset
                         s2.amount_of_asset += t.transaction_sum
                         s2.state_id = last_state_id
@@ -170,25 +167,68 @@ class StatesManager:
                         s2.currency_rate = None
                         last_state_id += 1
                         self.states_db.insert_state(s2)
-                    table.add_row(s.__dict__.values())
+                        table.add_row(s2.__dict__.values())
                     print(table)
 
-                elif t.transaction_type == TransactionType.TRADE:
+                elif t.transaction_type == TransactionType.TRADE or t.transaction_type == TransactionType.COMMISSION:
                     s.asset = t.asset
                     if last_asset_state.client_id is not None:
-                        s.copy_last_state_values(last_asset_state)
-                        s.amount_of_asset += t.transaction_sum
+                        s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
+                        s.cost_of_asset = last_related_asset_state.cost_of_asset
+                        s.cost_currency = last_related_asset_state.cost_currency
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
                     table.clear()
                     table.add_row(s.__dict__.keys())
                     table.add_row(s.__dict__.values())
-                    print(table)
 
                     # Costs handling
-                    # if t.asset != t.related_asset:
-                    #     pass
+                    if t.asset == t.related_asset:  # stocks, options, etc.
+                        if last_asset_state.client_id is not None:
+                            if t.transaction_sum > 0:  # buying
+                                s.amount_in_fifo = t.transaction_sum
+                            elif t.transaction_sum < 0:  # selling
+                                s.amount_in_fifo = t.transaction_sum
+                                # TODO
+                            else:
+                                raise "Error: zero in data"
+                        else:
+                            s.amount_in_fifo = t.transaction_sum
+                        self.states_db.update_state(s)
+                        table.add_row(s.__dict__.values())
+                    else:  # fiat
+                        last_related_asset_state.currency_pair = f'{t.asset}PLN'
+                        last_related_asset_state.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
+                        if last_related_asset_state is None:
+                            raise "Costs for non-existing asset!"
+                        if t.transaction_sum < 0:  # buying
+                            if last_related_asset_state.cost_of_asset is None:  # first buying
+                                last_related_asset_state.cost_of_asset = t.transaction_sum
+                                last_related_asset_state.cost_in_fifo = t.transaction_sum
+                            else:
+                                last_related_asset_state.cost_of_asset += t.transaction_sum
+                                if last_related_asset_state.cost_in_fifo is None:
+                                    last_related_asset_state.cost_in_fifo = t.transaction_sum
+                                else:
+                                    last_related_asset_state.cost_in_fifo += t.transaction_sum
+                            last_related_asset_state.cost_currency = t.asset
+                            last_related_asset_state.fifo_currency = t.asset
+                        elif t.transaction_sum > 0:  # selling
+                            if last_related_asset_state.client_id is None:
+                                print(t.related_asset)  # TODO: test it
+                            else:
+                                last_related_asset_state.cost_of_asset += t.transaction_sum
+                            if last_related_asset_state.cost_in_fifo is None:
+                                last_related_asset_state.cost_in_fifo = t.transaction_sum
+                            else:
+                                last_related_asset_state.cost_in_fifo += t.transaction_sum
+                            # TODO
+                        else:
+                            raise "Error: zero in data"
+                        self.states_db.update_state(last_related_asset_state)
+                        table.add_row(last_related_asset_state.__dict__.values())
+                    print(table)
 
                 else:
                     pass
