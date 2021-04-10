@@ -1,3 +1,5 @@
+from typing import Optional
+
 import mysql.connector
 import configparser
 from dto.state import State
@@ -17,7 +19,44 @@ class StatesDatabase:
         database = config['CreatidyDB']['DATABASE']
         self.cnx = mysql.connector.connect(user=user, password=password, host=host, database=database)
 
-    def get_latest_state(self, client_id: str, account: str, asset: str) -> State:
+    def read_query(self, query, params) -> list:
+        cursor = self.cnx.cursor(buffered=True)
+        cursor.execute(query, params)
+        kwargs = {}
+        states = []
+        if cursor.rowcount > 0:
+            for item in cursor:
+                kwargs = {
+                    'state_id': item[0],
+                    'client_id': item[1],
+                    'data_source': item[2],
+                    'account': item[3],
+                    'transaction_id': item[4],
+                    'transaction_type': item[5],
+                    'asset': item[6],
+                    'timestamp': item[7],
+                    'amount_of_asset': Decimal(item[8]) if item[8] is not None else None,
+                    'cost_of_asset': Decimal(item[9]) if item[9] is not None else None,
+                    'cost_currency': item[10],
+                    'amount_in_fifo': Decimal(item[11]) if item[11] is not None else None,
+                    'cost_in_fifo': Decimal(item[12]) if item[12] is not None else None,
+                    'fifo_currency': item[13],
+                    'income': Decimal(item[14]) if item[14] is not None else None,
+                    'cost': Decimal(item[15]) if item[15] is not None else None,
+                    'profit': Decimal(item[16]) if item[16] is not None else None,
+                    'profit_currency': item[17] if item[17] is not None else None,
+                    'dividend': Decimal(item[18]) if item[18] is not None else None,
+                    'withholding_tax': Decimal(item[19]) if item[19] is not None else None,
+                    'dividend_currency': item[20] if item[20] is not None else None,
+                    'currency_pair': item[21] if item[21] is not None else None,
+                    'currency_rate': Decimal(item[22]) if item[22] is not None else None,
+                    'last_update': item[23]
+                }
+                states.append(State(**kwargs))
+        cursor.close()
+        return states
+
+    def get_latest_state(self, client_id: str, account: str, asset: str) -> Optional[State]:
         """
 
         :rtype: State
@@ -52,45 +91,29 @@ class StatesDatabase:
                         `states`.`asset` = %s 
                     ORDER BY `states`.`timestamp` DESC, `states`.`state_id` DESC
                     LIMIT 1"""
+        res = self.read_query(query, (client_id, account, asset))
+        if len(res) == 0:
+            return None
+        else:
+            return res[0]
+
+    def execute_query(self, query):
         cursor = self.cnx.cursor(buffered=True)
-        cursor.execute(query, (client_id, account, asset))
-        kwargs = {}
-        if cursor.rowcount > 0:
-            for item in cursor:
-                kwargs = {
-                    'state_id': item[0],
-                    'client_id': item[1],
-                    'data_source': item[2],
-                    'account': item[3],
-                    'transaction_id': item[4],
-                    'transaction_type': item[5],
-                    'asset': item[6],
-                    'timestamp': item[7],
-                    'amount_of_asset': Decimal(item[8]) if item[8] is not None else None,
-                    'cost_of_asset': Decimal(item[9]) if item[9] is not None else None,
-                    'cost_currency': item[10],
-                    'amount_in_fifo': Decimal(item[11]) if item[11] is not None else None,
-                    'cost_in_fifo': Decimal(item[12]) if item[12] is not None else None,
-                    'fifo_currency': item[13],
-                    'income': Decimal(item[14]) if item[14] is not None else None,
-                    'cost': Decimal(item[15]) if item[15] is not None else None,
-                    'profit': Decimal(item[16]) if item[16] is not None else None,
-                    'profit_currency': item[17] if item[17] is not None else None,
-                    'dividend': Decimal(item[18]) if item[18] is not None else None,
-                    'withholding_tax': Decimal(item[19]) if item[19] is not None else None,
-                    'dividend_currency': item[20] if item[20] is not None else None,
-                    'currency_pair': item[21] if item[21] is not None else None,
-                    'currency_rate': Decimal(item[22]) if item[22] is not None else None,
-                    'last_update': item[23]
-                }
+        cursor.execute(query)
         cursor.close()
-        return State(**kwargs)
 
     def delete_all_states(self):
         query = "DELETE FROM `creatidy`.`states` WHERE `states`.`state_id` > 0"
+        self.execute_query(query)
+
+    def load_test_db(self):
         cursor = self.cnx.cursor(buffered=True)
-        cursor.execute(query,)
-        cursor.close()
+        with open('config/states_for_tests.sql', 'r') as file:
+            result_iterator = cursor.execute(file.read(), multi=True)
+            for res in result_iterator:
+                print("Running query: ", res)  # Will print out a short representation of the query
+                print(f"Affected {res.rowcount} rows")
+            self.cnx.commit()
 
     def insert_state(self, state: State):
         query = """INSERT INTO `creatidy`.`states`
@@ -199,3 +222,71 @@ class StatesDatabase:
                                state.state_id
                                ))
         self.cnx.commit()
+
+    def get_fifo_costs_states(self, client_id: str, account: str, asset: str) -> list:
+        """
+
+        :rtype: State
+        """
+        query = """ SELECT `states`.`state_id`,
+                        `states`.`client_id`,
+                        `states`.`data_source`,
+                        `states`.`account`,
+                        `states`.`transaction_id`,
+                        `states`.`transaction_type`,
+                        `states`.`asset`,
+                        `states`.`timestamp`,
+                        `states`.`amount_of_asset`,
+                        `states`.`cost_of_asset`,
+                        `states`.`cost_currency`,
+                        `states`.`amount_in_fifo`,
+                        `states`.`cost_in_fifo`,
+                        `states`.`fifo_currency`,
+                        `states`.`income`,
+                        `states`.`cost`,
+                        `states`.`profit`,
+                        `states`.`profit_currency`,
+                        `states`.`dividend`,
+                        `states`.`withholding_tax`,
+                        `states`.`dividend_currency`,
+                        `states`.`currency_pair`,
+                        `states`.`currency_rate`,
+                        `states`.`last_update`
+                    FROM `creatidy`.`states`
+                    WHERE `states`.`client_id` = %s AND 
+                        `states`.`account` = %s AND
+                        `states`.`asset` = %s AND
+                        `states`.`amount_in_fifo` > 0
+                    ORDER BY `states`.`timestamp` ASC , `states`.`state_id` ASC """
+        return self.read_query(query, (client_id, account, asset))
+
+    def get_not_processed_states(self) -> list:
+        query = """ SELECT `states`.`state_id`,
+                        `states`.`client_id`,
+                        `states`.`data_source`,
+                        `states`.`account`,
+                        `states`.`transaction_id`,
+                        `states`.`transaction_type`,
+                        `states`.`asset`,
+                        `states`.`timestamp`,
+                        `states`.`amount_of_asset`,
+                        `states`.`cost_of_asset`,
+                        `states`.`cost_currency`,
+                        `states`.`amount_in_fifo`,
+                        `states`.`cost_in_fifo`,
+                        `states`.`fifo_currency`,
+                        `states`.`income`,
+                        `states`.`cost`,
+                        `states`.`profit`,
+                        `states`.`profit_currency`,
+                        `states`.`dividend`,
+                        `states`.`withholding_tax`,
+                        `states`.`dividend_currency`,
+                        `states`.`currency_pair`,
+                        `states`.`currency_rate`,
+                        `states`.`last_update`
+                    FROM `creatidy`.`states`
+                    WHERE `states`.`amount_in_fifo` < 0
+                    ORDER BY `states`.`timestamp` ASC , `states`.`state_id` ASC"""
+        return self.read_query(query, ())
+

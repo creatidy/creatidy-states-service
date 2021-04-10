@@ -15,6 +15,7 @@ class StatesManager:
     def __init__(self):
         self.transactions = TransactionsList()
         self.states_db = StatesDatabase()
+        self.prettytable = PrettyTable(header=False)
 
     def get_transactions(self) -> TransactionsList:
         transactions_grpc = Transactions()
@@ -39,14 +40,13 @@ class StatesManager:
     def process_transactions(self):
         last_state_id = 1
         self.states_db.delete_all_states()
-        table = PrettyTable(header=False)
         all_transactions = self.get_transactions()
         for t in all_transactions:
             if True:  # datetime(2020, 1, 1).timestamp() <= t.timestamp <= datetime(2020, 12, 31).timestamp():
-                table.clear()
-                table.add_row(t.__dict__.keys())
-                table.add_row(t.__dict__.values())
-                print(table)
+                self.prettytable.clear()
+                self.prettytable.add_row(t.__dict__.keys())
+                self.prettytable.add_row(t.__dict__.values())
+                print(self.prettytable)
 
                 pln_exchange_rates = Rates()
                 transaction_date = datetime.fromtimestamp(float(t.timestamp))
@@ -67,34 +67,31 @@ class StatesManager:
                 last_asset_state = self.states_db.get_latest_state(t.client_id, t.account, t.asset)
                 if t.related_asset is not None:
                     last_related_asset_state = self.states_db.get_latest_state(t.client_id, t.account, t.related_asset)
-                else:
-                    last_related_asset_state = None
-
                 if t.transaction_type == TransactionType.DEPOSIT or \
                         t.transaction_type == TransactionType.WITHDRAWAL or \
                         t.transaction_type == TransactionType.TRANSFER:
                     s.asset = t.asset
-                    if last_asset_state.client_id is not None:
+                    if last_asset_state is not None:
                         s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
-                    table.clear()
-                    table.add_row(s.__dict__.keys())
-                    table.add_row(s.__dict__.values())
-                    print(table)
+                    self.prettytable.clear()
+                    self.prettytable.add_row(s.__dict__.keys())
+                    self.prettytable.add_row(s.__dict__.values())
+                    print(self.prettytable)
 
                 elif t.transaction_type == TransactionType.FEE:
                     s.asset = t.asset
-                    if last_asset_state.client_id is not None:
+                    if last_asset_state is not None:
                         s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
-                    table.clear()
-                    table.add_row(s.__dict__.keys())
-                    table.add_row(s.__dict__.values())
-                    print(table)
+                    self.prettytable.clear()
+                    self.prettytable.add_row(s.__dict__.keys())
+                    self.prettytable.add_row(s.__dict__.values())
+                    print(self.prettytable)
 
                 # elif t.transaction_type == TransactionType.COMMISSION:
                 #     s.asset = t.asset
@@ -104,10 +101,10 @@ class StatesManager:
                 #     else:
                 #         s.amount_of_asset = t.transaction_sum
                 #     self.states_db.insert_state(s)
-                #     table.clear()
-                #     table.add_row(s.__dict__.keys())
-                #     table.add_row(s.__dict__.values())
-                #     print(table)
+                #     self.prettytable.clear()
+                #     self.prettytable.add_row(s.__dict__.keys())
+                #     self.prettytable.add_row(s.__dict__.values())
+                #     print(self.prettytable)
 
                 elif t.transaction_type == TransactionType.DIVIDEND:
                     if last_related_asset_state.amount_of_asset is not None:
@@ -118,9 +115,9 @@ class StatesManager:
                         s.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
                         s.dividend_currency = t.asset
                         self.states_db.insert_state(s)
-                        table.clear()
-                        table.add_row(s.__dict__.keys())
-                        table.add_row(s.__dict__.values())
+                        self.prettytable.clear()
+                        self.prettytable.add_row(s.__dict__.keys())
+                        self.prettytable.add_row(s.__dict__.values())
                     else:
                         raise Exception("Dividend from non-existing asset!")
                     # Adding to payed dividend to an account
@@ -134,8 +131,8 @@ class StatesManager:
                         s2.currency_rate = None
                         last_state_id += 1
                         self.states_db.insert_state(s2)
-                        table.add_row(s2.__dict__.values())
-                    print(table)
+                        self.prettytable.add_row(s2.__dict__.values())
+                    print(self.prettytable)
 
                 elif t.transaction_type == TransactionType.TAX:
                     if last_related_asset_state.dividend > 0:
@@ -151,9 +148,9 @@ class StatesManager:
                         s.currency_pair = last_related_asset_state.currency_pair
                         s.currency_rate = last_related_asset_state.currency_rate
                         self.states_db.update_state(s)
-                        table.clear()
-                        table.add_row(s.__dict__.keys())
-                        table.add_row(s.__dict__.values())
+                        self.prettytable.clear()
+                        self.prettytable.add_row(s.__dict__.keys())
+                        self.prettytable.add_row(s.__dict__.values())
                     else:
                         raise Exception("Tax for dividend from non-existing asset!")
                     # Paying a tax for the dividend from an account
@@ -167,37 +164,39 @@ class StatesManager:
                         s2.currency_rate = None
                         last_state_id += 1
                         self.states_db.insert_state(s2)
-                        table.add_row(s2.__dict__.values())
-                    print(table)
+                        self.prettytable.add_row(s2.__dict__.values())
+                    print(self.prettytable)
 
                 elif t.transaction_type == TransactionType.TRADE or t.transaction_type == TransactionType.COMMISSION:
                     s.asset = t.asset
-                    if last_asset_state.client_id is not None:
+                    if last_asset_state is not None:
                         s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
-                        s.cost_of_asset = last_related_asset_state.cost_of_asset
-                        s.cost_currency = last_related_asset_state.cost_currency
+                        if last_related_asset_state is not None:
+                            s.cost_of_asset = last_related_asset_state.cost_of_asset
+                            s.cost_currency = last_related_asset_state.cost_currency
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
-                    table.clear()
-                    table.add_row(s.__dict__.keys())
-                    table.add_row(s.__dict__.values())
+                    self.prettytable.clear()
+                    self.prettytable.add_row(s.__dict__.keys())
+                    self.prettytable.add_row(s.__dict__.values())
 
                     # Costs handling
                     if t.asset == t.related_asset:  # stocks, options, etc.
-                        if last_asset_state.client_id is not None:
+                        if last_asset_state is not None:
                             if t.transaction_sum > 0:  # buying
                                 s.amount_in_fifo = t.transaction_sum
                             elif t.transaction_sum < 0:  # selling
                                 s.amount_in_fifo = t.transaction_sum
-                                # TODO
                             else:
                                 raise "Error: zero in data"
                         else:
                             s.amount_in_fifo = t.transaction_sum
                         self.states_db.update_state(s)
-                        table.add_row(s.__dict__.values())
+                        self.prettytable.add_row(s.__dict__.values())
                     else:  # fiat
+                        if last_related_asset_state is None:
+                            last_related_asset_state = State()
                         last_related_asset_state.currency_pair = f'{t.asset}PLN'
                         last_related_asset_state.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
                         if last_related_asset_state is None:
@@ -223,14 +222,75 @@ class StatesManager:
                                 last_related_asset_state.cost_in_fifo = t.transaction_sum
                             else:
                                 last_related_asset_state.cost_in_fifo += t.transaction_sum
-                            # TODO
                         else:
                             raise "Error: zero in data"
                         self.states_db.update_state(last_related_asset_state)
-                        table.add_row(last_related_asset_state.__dict__.values())
-                    print(table)
+                        self.prettytable.add_row(last_related_asset_state.__dict__.values())
+                    print(self.prettytable)
 
                 else:
                     pass
-
         return True
+
+    def process_costs(self):
+        processed_states = self.states_db.get_not_processed_states()
+        processed_state: State
+        for processed_state in processed_states:
+            processed_state.income = 0
+            processed_state.cost = 0
+            costs_states = self.states_db.get_fifo_costs_states(processed_state.client_id,
+                                                                processed_state.account,
+                                                                processed_state.asset)
+            cost_state: State
+            self.prettytable.clear()
+            self.prettytable.add_row(processed_state.__dict__.keys())
+            self.prettytable.add_row(processed_state.__dict__.values())
+            for cost_state in costs_states:
+                if processed_state.amount_in_fifo < 0:
+                    if cost_state.amount_in_fifo > -processed_state.amount_in_fifo:
+                        if cost_state.amount_in_fifo == 0:
+                            print()
+                            continue
+                        else:
+                            self.process_cost(processed_state, cost_state)
+                    else:  # cost could be calculated only from this record
+                        self.process_cost(processed_state, cost_state)
+                elif processed_state.amount_in_fifo > 0:
+                    raise "Problem!"
+                else:
+                    print(self.prettytable)
+        return True
+
+    def process_cost(self, processed_state: State, cost_state: State):
+        self.prettytable.add_row(cost_state.__dict__.values())
+        amount_in_fifo = cost_state.amount_in_fifo
+        rest = -processed_state.amount_in_fifo
+        if rest > amount_in_fifo:
+            processed_state.amount_in_fifo += amount_in_fifo
+            cost_state.amount_in_fifo = 0
+            share = amount_in_fifo / rest
+            processed_state.income += processed_state.cost_in_fifo * share
+            processed_state.cost_in_fifo = processed_state.cost_in_fifo * (1 - share)
+            processed_state.cost += cost_state.cost_in_fifo
+            cost_state.cost_in_fifo = 0
+        elif rest < amount_in_fifo:
+            cost_state.amount_in_fifo -= rest
+            processed_state.amount_in_fifo = 0
+            processed_state.income += processed_state.cost_in_fifo
+            processed_state.cost_in_fifo = 0
+            share = rest / amount_in_fifo
+            processed_state.cost += cost_state.cost_in_fifo * share
+            cost_state.cost_in_fifo = cost_state.cost_in_fifo * (1 - share)
+        else:
+            cost_state.amount_in_fifo = 0
+            processed_state.amount_in_fifo = 0
+            processed_state.income += processed_state.cost_in_fifo
+            processed_state.cost_in_fifo = 0
+            processed_state.cost += cost_state.cost_in_fifo
+            cost_state.cost_in_fifo = 0
+        processed_state.profit = processed_state.income + processed_state.cost
+        processed_state.profit_currency = processed_state.cost_currency
+        self.states_db.update_state(processed_state)
+        self.states_db.update_state(cost_state)
+        self.prettytable.add_row(processed_state.__dict__.values())
+        self.prettytable.add_row(cost_state.__dict__.values())
