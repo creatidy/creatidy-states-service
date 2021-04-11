@@ -16,8 +16,8 @@ class TestStatesManager(TestCase):
         self.assertTrue(res)
 
     def test_process_costs(self):
-        db = StatesDatabase()
-        db.load_test_db()
+        # db = StatesDatabase()
+        # db.load_test_db()
         sm = StatesManager()
         res = sm.process_costs()
         self.assertTrue(res)

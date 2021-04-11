@@ -17,6 +17,8 @@ class StatesManager:
         self.states_db = StatesDatabase()
         self.prettytable = PrettyTable(header=False)
 
+    # TODO: INTERESTS/FEE
+
     def get_transactions(self) -> TransactionsList:
         transactions_grpc = Transactions()
         for t in transactions_grpc.get_transactions():
@@ -42,7 +44,7 @@ class StatesManager:
         self.states_db.delete_all_states()
         all_transactions = self.get_transactions()
         for t in all_transactions:
-            if True:  # datetime(2020, 1, 1).timestamp() <= t.timestamp <= datetime(2020, 12, 31).timestamp():
+            if t.timestamp < datetime(2021, 1, 1).timestamp():
                 self.prettytable.clear()
                 self.prettytable.add_row(t.__dict__.keys())
                 self.prettytable.add_row(t.__dict__.values())
