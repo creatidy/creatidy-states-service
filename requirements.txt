@@ -5,3 +5,4 @@ setuptools==54.2.0
 six==1.15.0
 grpcio==1.36.1
 grpcio-tools==1.36.1
+prettytable

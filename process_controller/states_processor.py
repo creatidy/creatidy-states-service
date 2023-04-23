@@ -34,7 +34,8 @@ class StatesManager:
                 'order_id': t.order_id,
                 'order_position': t.order_position,
                 'related_account': t.related_account,
-                'transaction_sum': Decimal(t.transaction_sum)
+                'transaction_sum': Decimal(t.transaction_sum),
+                'split': t.split
             }
             self.transactions.append(Transaction(**kwargs))
         return self.transactions
@@ -44,7 +45,7 @@ class StatesManager:
         self.states_db.delete_all_states()
         all_transactions = self.get_transactions()
         for t in all_transactions:
-            if t.timestamp < datetime(2021, 1, 1).timestamp():
+            if t.timestamp < datetime(2023, 1, 1).timestamp():
                 self.prettytable.clear()
                 self.prettytable.add_row(t.__dict__.keys())
                 self.prettytable.add_row(t.__dict__.values())
@@ -67,8 +68,8 @@ class StatesManager:
                 last_state_id += 1
 
                 last_asset_state = self.states_db.get_latest_state(t.client_id, t.account, t.asset)
-                if t.related_asset is not None:
-                    last_related_asset_state = self.states_db.get_latest_state(t.client_id, t.account, t.related_asset)
+                last_related_asset_state = self.states_db.get_latest_state(t.client_id, t.account, t.related_asset) if t.related_asset is not None else None
+                last_related_asset_trade_state = self.states_db.get_latest_state(t.client_id, t.account, t.asset, 'TRADE') if t.related_asset is not None else None
                 if t.transaction_type == TransactionType.DEPOSIT or \
                         t.transaction_type == TransactionType.WITHDRAWAL or \
                         t.transaction_type == TransactionType.TRANSFER:
@@ -116,13 +117,14 @@ class StatesManager:
                         s.currency_pair = f'{t.asset}PLN'
                         s.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
                         s.dividend_currency = t.asset
+                        s.transaction_type = 'DIVIDEND'
                         self.states_db.insert_state(s)
                         self.prettytable.clear()
                         self.prettytable.add_row(s.__dict__.keys())
                         self.prettytable.add_row(s.__dict__.values())
                     else:
                         raise Exception("Dividend from non-existing asset!")
-                    # Adding to payed dividend to an account
+                    # Adding to paid dividend to an account
                     if last_asset_state.amount_of_asset is not None:
                         s2 = State(**initial_kwargs)
                         s2.amount_of_asset = last_asset_state.amount_of_asset
@@ -137,7 +139,7 @@ class StatesManager:
                     print(self.prettytable)
 
                 elif t.transaction_type == TransactionType.TAX:
-                    if last_related_asset_state.dividend > 0:
+                    if last_related_asset_state.dividend is not None and last_related_asset_state.dividend > 0:
                         s.amount_of_asset = last_related_asset_state.amount_of_asset
                         s.asset = t.related_asset
                         s.state_id = last_related_asset_state.state_id
@@ -149,12 +151,31 @@ class StatesManager:
                         s.withholding_tax = Decimal(t.transaction_sum)
                         s.currency_pair = last_related_asset_state.currency_pair
                         s.currency_rate = last_related_asset_state.currency_rate
+                        s.transaction_type = 'TAX'
                         self.states_db.update_state(s)
                         self.prettytable.clear()
                         self.prettytable.add_row(s.__dict__.keys())
                         self.prettytable.add_row(s.__dict__.values())
                     else:
-                        raise Exception("Tax for dividend from non-existing asset!")
+                        print("VERIFY! Tax for dividend from non-existing asset!? OR TAX")
+                        # TODO: Verify if it is a tax for dividend from non-existing asset or just a tax
+                        s.asset = t.asset
+                        if last_asset_state is not None:
+                            s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
+                            if last_related_asset_state is not None and last_related_asset_state.cost_currency is not None:
+                                s.cost_of_asset = last_related_asset_state.cost_of_asset
+                                s.cost_currency = last_related_asset_state.cost_currency
+                            elif last_related_asset_trade_state is not None:
+                                s.cost_of_asset = last_related_asset_trade_state.cost_of_asset
+                                s.cost_currency = last_related_asset_trade_state.cost_currency
+                        else:
+                            s.amount_of_asset = t.transaction_sum
+                        s.transaction_type = 'TAX'
+                        self.states_db.insert_state(s)
+                        self.prettytable.clear()
+                        self.prettytable.add_row(s.__dict__.keys())
+                        self.prettytable.add_row(s.__dict__.values())
+
                     # Paying a tax for the dividend from an account
                     if last_asset_state.amount_of_asset is not None:
                         s2 = State(**initial_kwargs)
@@ -165,6 +186,7 @@ class StatesManager:
                         s2.currency_pair = None
                         s2.currency_rate = None
                         last_state_id += 1
+                        s2.transaction_type = 'TAX'
                         self.states_db.insert_state(s2)
                         self.prettytable.add_row(s2.__dict__.values())
                     print(self.prettytable)
@@ -173,9 +195,12 @@ class StatesManager:
                     s.asset = t.asset
                     if last_asset_state is not None:
                         s.amount_of_asset = last_asset_state.amount_of_asset + t.transaction_sum
-                        if last_related_asset_state is not None:
+                        if last_related_asset_state is not None and last_related_asset_state.cost_currency is not None:
                             s.cost_of_asset = last_related_asset_state.cost_of_asset
                             s.cost_currency = last_related_asset_state.cost_currency
+                        elif last_related_asset_trade_state is not None:
+                            s.cost_of_asset = last_related_asset_trade_state.cost_of_asset
+                            s.cost_currency = last_related_asset_trade_state.cost_currency
                     else:
                         s.amount_of_asset = t.transaction_sum
                     self.states_db.insert_state(s)
@@ -199,8 +224,12 @@ class StatesManager:
                     else:  # fiat
                         if last_related_asset_state is None:
                             last_related_asset_state = State()
-                        last_related_asset_state.currency_pair = f'{t.asset}PLN'
-                        last_related_asset_state.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
+                        if t.asset == 'PLN':
+                            last_related_asset_state.currency_pair = f'PLNPLN'
+                            last_related_asset_state.currency_rate = 1.0
+                        else:
+                            last_related_asset_state.currency_pair = f'{t.asset}PLN'
+                            last_related_asset_state.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
                         if last_related_asset_state is None:
                             raise "Costs for non-existing asset!"
                         if t.transaction_sum < 0:  # buying
@@ -219,6 +248,8 @@ class StatesManager:
                             if last_related_asset_state.client_id is None:
                                 print(t.related_asset)  # TODO: test it
                             else:
+                                if last_related_asset_state.cost_of_asset is None:
+                                    last_related_asset_state.cost_of_asset = 0
                                 last_related_asset_state.cost_of_asset += t.transaction_sum
                             if last_related_asset_state.cost_in_fifo is None:
                                 last_related_asset_state.cost_in_fifo = t.transaction_sum
@@ -230,6 +261,13 @@ class StatesManager:
                         self.prettytable.add_row(last_related_asset_state.__dict__.values())
                     print(self.prettytable)
 
+                elif t.transaction_type == TransactionType.STOCK_SPLIT:
+                    split_ratio = tuple(t.split.split(':'))
+                    if len(split_ratio) != 2:
+                        raise "Error: wrong split ratio"
+                    if int(split_ratio[0]) == 0 or int(split_ratio[1]) == 0:
+                        raise "Error: wrong split ratio"
+                    self.states_db.split_asset(t.asset, split_ratio)
                 else:
                     pass
         return True

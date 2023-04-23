@@ -56,7 +56,7 @@ class StatesDatabase:
         cursor.close()
         return states
 
-    def get_latest_state(self, client_id: str, account: str, asset: str) -> Optional[State]:
+    def get_latest_state(self, client_id: str, account: str, asset: str, transaction_type=None) -> Optional[State]:
         """
 
         :rtype: State
@@ -88,9 +88,10 @@ class StatesDatabase:
                     FROM `creatidy`.`states`
                     WHERE `states`.`client_id` = %s AND 
                         `states`.`account` = %s AND
-                        `states`.`asset` = %s 
-                    ORDER BY `states`.`timestamp` DESC, `states`.`state_id` DESC
-                    LIMIT 1"""
+                        `states`.`asset` = %s"""
+        if transaction_type is not None:
+            query += f" AND `states`.`transaction_type` = '{transaction_type}'"
+        query += """ ORDER BY `states`.`timestamp` DESC, `states`.`state_id` DESC LIMIT 1"""
         res = self.read_query(query, (client_id, account, asset))
         if len(res) == 0:
             return None
@@ -290,3 +291,15 @@ class StatesDatabase:
                     ORDER BY `states`.`timestamp` ASC , `states`.`state_id` ASC"""
         return self.read_query(query, ())
 
+    def split_asset(self, asset: str, split_ratio: tuple):
+        query = """UPDATE `creatidy`.`states`
+                      SET `states`.`amount_of_asset` = `states`.`amount_of_asset` * %s / %s
+                    WHERE `states`.`asset` = %s AND `states`.`amount_of_asset` != 0"""
+        self.cnx.cursor().execute(query, (split_ratio[0], split_ratio[1], asset))
+
+        query = """UPDATE `creatidy`.`states`
+                      SET `states`.`amount_in_fifo` = `states`.`amount_in_fifo` * %s / %s
+                    WHERE `states`.`asset` = %s AND `states`.`amount_in_fifo` != 0"""
+        self.cnx.cursor().execute(query, (split_ratio[0], split_ratio[1], asset))
+
+        self.cnx.commit()
