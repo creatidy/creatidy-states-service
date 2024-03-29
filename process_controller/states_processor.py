@@ -45,7 +45,7 @@ class StatesManager:
         self.states_db.delete_all_states()
         all_transactions = self.get_transactions()
         for t in all_transactions:
-            if t.timestamp < datetime(2023, 1, 1).timestamp():
+            if t.timestamp < datetime(2024, 1, 1).timestamp():
                 self.prettytable.clear()
                 self.prettytable.add_row(t.__dict__.keys())
                 self.prettytable.add_row(t.__dict__.values())
