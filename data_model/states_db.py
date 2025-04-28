@@ -6,6 +6,7 @@ from dto.state import State
 from decimal import Decimal
 from datetime import datetime
 
+STATES_TABLE = "`ib_states`"
 
 class StatesDatabase:
 
@@ -61,37 +62,37 @@ class StatesDatabase:
 
         :rtype: State
         """
-        query = """ SELECT `states`.`state_id`,
-                        `states`.`client_id`,
-                        `states`.`data_source`,
-                        `states`.`account`,
-                        `states`.`transaction_id`,
-                        `states`.`transaction_type`,
-                        `states`.`asset`,
-                        `states`.`timestamp`,
-                        `states`.`amount_of_asset`,
-                        `states`.`cost_of_asset`,
-                        `states`.`cost_currency`,
-                        `states`.`amount_in_fifo`,
-                        `states`.`cost_in_fifo`,
-                        `states`.`fifo_currency`,
-                        `states`.`income`,
-                        `states`.`cost`,
-                        `states`.`profit`,
-                        `states`.`profit_currency`,
-                        `states`.`dividend`,
-                        `states`.`withholding_tax`,
-                        `states`.`dividend_currency`,
-                        `states`.`currency_pair`,
-                        `states`.`currency_rate`,
-                        `states`.`last_update`
-                    FROM `creatidy`.`states`
-                    WHERE `states`.`client_id` = %s AND 
-                        `states`.`account` = %s AND
-                        `states`.`asset` = %s"""
+        query = f""" SELECT {STATES_TABLE}.`state_id`,
+                        {STATES_TABLE}.`client_id`,
+                        {STATES_TABLE}.`data_source`,
+                        {STATES_TABLE}.`account`,
+                        {STATES_TABLE}.`transaction_id`,
+                        {STATES_TABLE}.`transaction_type`,
+                        {STATES_TABLE}.`asset`,
+                        {STATES_TABLE}.`timestamp`,
+                        {STATES_TABLE}.`amount_of_asset`,
+                        {STATES_TABLE}.`cost_of_asset`,
+                        {STATES_TABLE}.`cost_currency`,
+                        {STATES_TABLE}.`amount_in_fifo`,
+                        {STATES_TABLE}.`cost_in_fifo`,
+                        {STATES_TABLE}.`fifo_currency`,
+                        {STATES_TABLE}.`income`,
+                        {STATES_TABLE}.`cost`,
+                        {STATES_TABLE}.`profit`,
+                        {STATES_TABLE}.`profit_currency`,
+                        {STATES_TABLE}.`dividend`,
+                        {STATES_TABLE}.`withholding_tax`,
+                        {STATES_TABLE}.`dividend_currency`,
+                        {STATES_TABLE}.`currency_pair`,
+                        {STATES_TABLE}.`currency_rate`,
+                        {STATES_TABLE}.`last_update`
+                    FROM {STATES_TABLE}
+                    WHERE {STATES_TABLE}.`client_id` = %s AND 
+                        {STATES_TABLE}.`account` = %s AND
+                        {STATES_TABLE}.`asset` = %s"""
         if transaction_type is not None:
-            query += f" AND `states`.`transaction_type` = '{transaction_type}'"
-        query += """ ORDER BY `states`.`timestamp` DESC, `states`.`state_id` DESC LIMIT 1"""
+            query += f" AND {STATES_TABLE}.`transaction_type` = '{transaction_type}'"
+        query += f""" ORDER BY {STATES_TABLE}.`timestamp` DESC, {STATES_TABLE}.`state_id` DESC LIMIT 1"""
         res = self.read_query(query, (client_id, account, asset))
         if len(res) == 0:
             return None
@@ -104,7 +105,7 @@ class StatesDatabase:
         cursor.close()
 
     def delete_all_states(self):
-        query = "DELETE FROM `creatidy`.`states` WHERE `states`.`state_id` > 0"
+        query = f"DELETE FROM {STATES_TABLE} WHERE {STATES_TABLE}.`state_id` > 0"
         self.execute_query(query)
 
     def load_test_db(self):
@@ -117,31 +118,31 @@ class StatesDatabase:
             self.cnx.commit()
 
     def insert_state(self, state: State):
-        query = """INSERT INTO `creatidy`.`states`
-                        (`states`.`state_id`,
-                        `states`.`client_id`,
-                        `states`.`data_source`,
-                        `states`.`account`,
-                        `states`.`transaction_id`,
-                        `states`.`transaction_type`,
-                        `states`.`asset`,
-                        `states`.`timestamp`,
-                        `states`.`amount_of_asset`,
-                        `states`.`cost_of_asset`,
-                        `states`.`cost_currency`,
-                        `states`.`amount_in_fifo`,
-                        `states`.`cost_in_fifo`,
-                        `states`.`fifo_currency`,
-                        `states`.`income`,
-                        `states`.`cost`,
-                        `states`.`profit`,
-                        `states`.`profit_currency`,
-                        `states`.`dividend`,
-                        `states`.`withholding_tax`,
-                        `states`.`dividend_currency`,
-                        `states`.`currency_pair`,
-                        `states`.`currency_rate`,
-                        `states`.`last_update`)
+        query = f"""INSERT INTO {STATES_TABLE}
+                        ({STATES_TABLE}.`state_id`,
+                        {STATES_TABLE}.`client_id`,
+                        {STATES_TABLE}.`data_source`,
+                        {STATES_TABLE}.`account`,
+                        {STATES_TABLE}.`transaction_id`,
+                        {STATES_TABLE}.`transaction_type`,
+                        {STATES_TABLE}.`asset`,
+                        {STATES_TABLE}.`timestamp`,
+                        {STATES_TABLE}.`amount_of_asset`,
+                        {STATES_TABLE}.`cost_of_asset`,
+                        {STATES_TABLE}.`cost_currency`,
+                        {STATES_TABLE}.`amount_in_fifo`,
+                        {STATES_TABLE}.`cost_in_fifo`,
+                        {STATES_TABLE}.`fifo_currency`,
+                        {STATES_TABLE}.`income`,
+                        {STATES_TABLE}.`cost`,
+                        {STATES_TABLE}.`profit`,
+                        {STATES_TABLE}.`profit_currency`,
+                        {STATES_TABLE}.`dividend`,
+                        {STATES_TABLE}.`withholding_tax`,
+                        {STATES_TABLE}.`dividend_currency`,
+                        {STATES_TABLE}.`currency_pair`,
+                        {STATES_TABLE}.`currency_rate`,
+                        {STATES_TABLE}.`last_update`)
                     VALUES (%s, %s,  %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
         cursor = self.cnx.cursor(buffered=True)
         cursor.execute(query, (state.state_id,
@@ -171,31 +172,31 @@ class StatesDatabase:
         self.cnx.commit()
 
     def update_state(self, state: State):
-        query = """UPDATE `creatidy`.`states`
-                   SET  `states`.`client_id` = %s,
-                        `states`.`data_source` = %s,
-                        `states`.`account` = %s,
-                        `states`.`transaction_id` = %s,
-                        `states`.`transaction_type` = %s,
-                        `states`.`asset` = %s,
-                        `states`.`timestamp` = %s,
-                        `states`.`amount_of_asset` = %s,
-                        `states`.`cost_of_asset` = %s,
-                        `states`.`cost_currency` = %s,
-                        `states`.`amount_in_fifo` = %s,
-                        `states`.`cost_in_fifo` = %s,
-                        `states`.`fifo_currency` = %s,
-                        `states`.`income` = %s,
-                        `states`.`cost` = %s,
-                        `states`.`profit` = %s,
-                        `states`.`profit_currency` = %s,
-                        `states`.`dividend` = %s,
-                        `states`.`withholding_tax` = %s,
-                        `states`.`dividend_currency` = %s,
-                        `states`.`currency_pair` = %s,
-                        `states`.`currency_rate` = %s,
-                        `states`.`last_update` = %s
-                   WHERE `states`.`state_id` = %s"""
+        query = f"""UPDATE {STATES_TABLE}
+                   SET  {STATES_TABLE}.`client_id` = %s,
+                        {STATES_TABLE}.`data_source` = %s,
+                        {STATES_TABLE}.`account` = %s,
+                        {STATES_TABLE}.`transaction_id` = %s,
+                        {STATES_TABLE}.`transaction_type` = %s,
+                        {STATES_TABLE}.`asset` = %s,
+                        {STATES_TABLE}.`timestamp` = %s,
+                        {STATES_TABLE}.`amount_of_asset` = %s,
+                        {STATES_TABLE}.`cost_of_asset` = %s,
+                        {STATES_TABLE}.`cost_currency` = %s,
+                        {STATES_TABLE}.`amount_in_fifo` = %s,
+                        {STATES_TABLE}.`cost_in_fifo` = %s,
+                        {STATES_TABLE}.`fifo_currency` = %s,
+                        {STATES_TABLE}.`income` = %s,
+                        {STATES_TABLE}.`cost` = %s,
+                        {STATES_TABLE}.`profit` = %s,
+                        {STATES_TABLE}.`profit_currency` = %s,
+                        {STATES_TABLE}.`dividend` = %s,
+                        {STATES_TABLE}.`withholding_tax` = %s,
+                        {STATES_TABLE}.`dividend_currency` = %s,
+                        {STATES_TABLE}.`currency_pair` = %s,
+                        {STATES_TABLE}.`currency_rate` = %s,
+                        {STATES_TABLE}.`last_update` = %s
+                   WHERE {STATES_TABLE}.`state_id` = %s"""
         cursor = self.cnx.cursor(buffered=True)
         cursor.execute(query, (state.client_id,
                                state.data_source,
@@ -229,77 +230,77 @@ class StatesDatabase:
 
         :rtype: State
         """
-        query = """ SELECT `states`.`state_id`,
-                        `states`.`client_id`,
-                        `states`.`data_source`,
-                        `states`.`account`,
-                        `states`.`transaction_id`,
-                        `states`.`transaction_type`,
-                        `states`.`asset`,
-                        `states`.`timestamp`,
-                        `states`.`amount_of_asset`,
-                        `states`.`cost_of_asset`,
-                        `states`.`cost_currency`,
-                        `states`.`amount_in_fifo`,
-                        `states`.`cost_in_fifo`,
-                        `states`.`fifo_currency`,
-                        `states`.`income`,
-                        `states`.`cost`,
-                        `states`.`profit`,
-                        `states`.`profit_currency`,
-                        `states`.`dividend`,
-                        `states`.`withholding_tax`,
-                        `states`.`dividend_currency`,
-                        `states`.`currency_pair`,
-                        `states`.`currency_rate`,
-                        `states`.`last_update`
-                    FROM `creatidy`.`states`
-                    WHERE `states`.`client_id` = %s AND 
-                        `states`.`account` = %s AND
-                        `states`.`asset` = %s AND
-                        `states`.`amount_in_fifo` > 0
-                    ORDER BY `states`.`timestamp` ASC , `states`.`state_id` ASC """
+        query = f""" SELECT {STATES_TABLE}.`state_id`,
+                        {STATES_TABLE}.`client_id`,
+                        {STATES_TABLE}.`data_source`,
+                        {STATES_TABLE}.`account`,
+                        {STATES_TABLE}.`transaction_id`,
+                        {STATES_TABLE}.`transaction_type`,
+                        {STATES_TABLE}.`asset`,
+                        {STATES_TABLE}.`timestamp`,
+                        {STATES_TABLE}.`amount_of_asset`,
+                        {STATES_TABLE}.`cost_of_asset`,
+                        {STATES_TABLE}.`cost_currency`,
+                        {STATES_TABLE}.`amount_in_fifo`,
+                        {STATES_TABLE}.`cost_in_fifo`,
+                        {STATES_TABLE}.`fifo_currency`,
+                        {STATES_TABLE}.`income`,
+                        {STATES_TABLE}.`cost`,
+                        {STATES_TABLE}.`profit`,
+                        {STATES_TABLE}.`profit_currency`,
+                        {STATES_TABLE}.`dividend`,
+                        {STATES_TABLE}.`withholding_tax`,
+                        {STATES_TABLE}.`dividend_currency`,
+                        {STATES_TABLE}.`currency_pair`,
+                        {STATES_TABLE}.`currency_rate`,
+                        {STATES_TABLE}.`last_update`
+                    FROM {STATES_TABLE}
+                    WHERE {STATES_TABLE}.`client_id` = %s AND 
+                        {STATES_TABLE}.`account` = %s AND
+                        {STATES_TABLE}.`asset` = %s AND
+                        {STATES_TABLE}.`amount_in_fifo` > 0
+                    ORDER BY {STATES_TABLE}.`timestamp` ASC , {STATES_TABLE}.`state_id` ASC """
         return self.read_query(query, (client_id, account, asset))
 
     def get_not_processed_states(self) -> list:
-        query = """ SELECT `states`.`state_id`,
-                        `states`.`client_id`,
-                        `states`.`data_source`,
-                        `states`.`account`,
-                        `states`.`transaction_id`,
-                        `states`.`transaction_type`,
-                        `states`.`asset`,
-                        `states`.`timestamp`,
-                        `states`.`amount_of_asset`,
-                        `states`.`cost_of_asset`,
-                        `states`.`cost_currency`,
-                        `states`.`amount_in_fifo`,
-                        `states`.`cost_in_fifo`,
-                        `states`.`fifo_currency`,
-                        `states`.`income`,
-                        `states`.`cost`,
-                        `states`.`profit`,
-                        `states`.`profit_currency`,
-                        `states`.`dividend`,
-                        `states`.`withholding_tax`,
-                        `states`.`dividend_currency`,
-                        `states`.`currency_pair`,
-                        `states`.`currency_rate`,
-                        `states`.`last_update`
-                    FROM `creatidy`.`states`
-                    WHERE `states`.`amount_in_fifo` < 0
-                    ORDER BY `states`.`timestamp` ASC , `states`.`state_id` ASC"""
+        query = f""" SELECT {STATES_TABLE}.`state_id`,
+                        {STATES_TABLE}.`client_id`,
+                        {STATES_TABLE}.`data_source`,
+                        {STATES_TABLE}.`account`,
+                        {STATES_TABLE}.`transaction_id`,
+                        {STATES_TABLE}.`transaction_type`,
+                        {STATES_TABLE}.`asset`,
+                        {STATES_TABLE}.`timestamp`,
+                        {STATES_TABLE}.`amount_of_asset`,
+                        {STATES_TABLE}.`cost_of_asset`,
+                        {STATES_TABLE}.`cost_currency`,
+                        {STATES_TABLE}.`amount_in_fifo`,
+                        {STATES_TABLE}.`cost_in_fifo`,
+                        {STATES_TABLE}.`fifo_currency`,
+                        {STATES_TABLE}.`income`,
+                        {STATES_TABLE}.`cost`,
+                        {STATES_TABLE}.`profit`,
+                        {STATES_TABLE}.`profit_currency`,
+                        {STATES_TABLE}.`dividend`,
+                        {STATES_TABLE}.`withholding_tax`,
+                        {STATES_TABLE}.`dividend_currency`,
+                        {STATES_TABLE}.`currency_pair`,
+                        {STATES_TABLE}.`currency_rate`,
+                        {STATES_TABLE}.`last_update`
+                    FROM {STATES_TABLE}
+                    WHERE {STATES_TABLE}.`amount_in_fifo` < 0
+                    ORDER BY {STATES_TABLE}.`timestamp` ASC , {STATES_TABLE}.`state_id` ASC"""
         return self.read_query(query, ())
 
     def split_asset(self, asset: str, split_ratio: tuple):
-        query = """UPDATE `creatidy`.`states`
-                      SET `states`.`amount_of_asset` = `states`.`amount_of_asset` * %s / %s
-                    WHERE `states`.`asset` = %s AND `states`.`amount_of_asset` != 0"""
+        query = f"""UPDATE {STATES_TABLE}
+                      SET {STATES_TABLE}.`amount_of_asset` = {STATES_TABLE}.`amount_of_asset` * %s / %s
+                    WHERE {STATES_TABLE}.`asset` = %s AND {STATES_TABLE}.`amount_of_asset` != 0"""
         self.cnx.cursor().execute(query, (split_ratio[0], split_ratio[1], asset))
 
-        query = """UPDATE `creatidy`.`states`
-                      SET `states`.`amount_in_fifo` = `states`.`amount_in_fifo` * %s / %s
-                    WHERE `states`.`asset` = %s AND `states`.`amount_in_fifo` != 0"""
+        query = f"""UPDATE {STATES_TABLE}
+                      SET {STATES_TABLE}.`amount_in_fifo` = {STATES_TABLE}.`amount_in_fifo` * %s / %s
+                    WHERE {STATES_TABLE}.`asset` = %s AND {STATES_TABLE}.`amount_in_fifo` != 0"""
         self.cnx.cursor().execute(query, (split_ratio[0], split_ratio[1], asset))
 
         self.cnx.commit()

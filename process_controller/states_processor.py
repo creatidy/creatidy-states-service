@@ -45,7 +45,7 @@ class StatesManager:
         self.states_db.delete_all_states()
         all_transactions = self.get_transactions()
         for t in all_transactions:
-            if t.timestamp < datetime(2024, 1, 1).timestamp():
+            if t.timestamp < datetime(2025, 1, 1).timestamp():
                 self.prettytable.clear()
                 self.prettytable.add_row(t.__dict__.keys())
                 self.prettytable.add_row(t.__dict__.values())
@@ -211,12 +211,7 @@ class StatesManager:
                     # Costs handling
                     if t.asset == t.related_asset:  # stocks, options, etc.
                         if last_asset_state is not None:
-                            if t.transaction_sum > 0:  # buying
-                                s.amount_in_fifo = t.transaction_sum
-                            elif t.transaction_sum < 0:  # selling
-                                s.amount_in_fifo = t.transaction_sum
-                            else:
-                                raise "Error: zero in data"
+                            s.amount_in_fifo = t.transaction_sum
                         else:
                             s.amount_in_fifo = t.transaction_sum
                         self.states_db.update_state(s)
@@ -232,31 +227,20 @@ class StatesManager:
                             last_related_asset_state.currency_rate = pln_exchange_rates.get_rates_pln(t.asset, transaction_date).value
                         if last_related_asset_state is None:
                             raise "Costs for non-existing asset!"
-                        if t.transaction_sum < 0:  # buying
-                            if last_related_asset_state.cost_of_asset is None:  # first buying
-                                last_related_asset_state.cost_of_asset = t.transaction_sum
-                                last_related_asset_state.cost_in_fifo = t.transaction_sum
-                            else:
-                                last_related_asset_state.cost_of_asset += t.transaction_sum
-                                if last_related_asset_state.cost_in_fifo is None:
-                                    last_related_asset_state.cost_in_fifo = t.transaction_sum
-                                else:
-                                    last_related_asset_state.cost_in_fifo += t.transaction_sum
-                            last_related_asset_state.cost_currency = t.asset
-                            last_related_asset_state.fifo_currency = t.asset
-                        elif t.transaction_sum > 0:  # selling
-                            if last_related_asset_state.client_id is None:
-                                print(t.related_asset)  # TODO: test it
-                            else:
-                                if last_related_asset_state.cost_of_asset is None:
-                                    last_related_asset_state.cost_of_asset = 0
-                                last_related_asset_state.cost_of_asset += t.transaction_sum
+                        
+                        # Removed case for negative amount_in_fifo
+                        if last_related_asset_state.cost_of_asset is None:  # first buying
+                            last_related_asset_state.cost_of_asset = t.transaction_sum
+                            last_related_asset_state.cost_in_fifo = t.transaction_sum
+                        else:
+                            last_related_asset_state.cost_of_asset += t.transaction_sum
                             if last_related_asset_state.cost_in_fifo is None:
                                 last_related_asset_state.cost_in_fifo = t.transaction_sum
                             else:
                                 last_related_asset_state.cost_in_fifo += t.transaction_sum
-                        else:
-                            raise "Error: zero in data"
+                        last_related_asset_state.cost_currency = t.asset
+                        last_related_asset_state.fifo_currency = t.asset
+
                         self.states_db.update_state(last_related_asset_state)
                         self.prettytable.add_row(last_related_asset_state.__dict__.values())
                     print(self.prettytable)
